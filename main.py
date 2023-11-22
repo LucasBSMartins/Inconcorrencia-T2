@@ -1,115 +1,107 @@
 import sys
-from queue import Queue
 import time 
 import random
-from threading import Thread, Semaphore, Lock, Condition
-#from atracao import *
+import queue
+from threading import Thread, Semaphore, Lock, Condition 
 
-sem_cliente_A = None
-sem_cliente_B = None
-sem_cliente_C = None
-sem_controle = Semaphore(value=1)
+lock = Lock()
+sessao_lock = Lock()
+remover_lock = Lock()
+item_no_buffer = Condition(lock)
+entrar_na_exp = Condition(sessao_lock)
 
-contador_threads_terminadas = Lock()
-threads_terminadas = 0
-
-
-class Clientes_na_fila(Thread):		       	                 # subclasse de Thread 
-  def __init__(self, name, faixa_etaria):             
-    self.faixa_etaria = faixa_etaria
-    super().__init__(name=name)		                         # chama construtor da superclasse 
-
-  def run(self):				                             # método executado pela thread 
-    global threads_terminadas
-    intervalo_chegada = random.randint(1, max_intervalo)
-    time.sleep(intervalo_chegada * unid_tempo / 1000)
-    print("%s entrou na fila" %(self.name))
-
-    if self.faixa_etaria == "A":
-        print(self.name + " espera")
-        sem_cliente_A.acquire()
-        print(self.name + " terminou semaforo " + self.faixa_etaria)
-    elif self.faixa_etaria == "B":
-        print(self.name + " espera")
-        sem_cliente_B.acquire()
-        print(self.name + " terminou semaforo " + self.faixa_etaria)
-    else:
-        print(self.name + " espera")
-        sem_cliente_C.acquire()
-        print(self.name + " terminou semaforo " + self.faixa_etaria)
-    with contador_threads_terminadas:
-        threads_terminadas += 1
+semaforo_entrar_na_fila = Semaphore(1)
+semaforo_sessao = Semaphore(1)
 
 
-class Atracao(Thread):
-    def __init__(self, name, nvagas, fila_clientes):             
-        self.nvagas = nvagas
-        self.fila_clientes = fila_clientes
-        super().__init__(name=name)                     # chama construtor da superclasse 
+def sessao(faixa_etaria_a):
+    global faixa_etaria_atual
+    global sessao_em_progresso
+
+    faixa_etaria_atual = faixa_etaria_a
+    with sessao_lock:
+        sessao_em_progresso = True
+        print("[Ixfera] Iniciando a experiencia %s." %(faixa_etaria_atual))
+        entrar_na_exp.notify()
+    time.sleep(permanencia * unid_tempo / 1000)
+    with sessao_lock:
+        sessao_em_progresso = False
+        print("[Ixfera] Pausando a experiencia %s." %(faixa_etaria_atual))
+        semaforo_sessao.release()
+
+class Cliente(Thread):		       	                             # subclasse de Thread 
+    def __init__(self, name, faixa_etaria):             
+        self.faixa_etaria = faixa_etaria
+        self.semaforo = Semaphore(0)
+        self.participou = False
+        super().__init__(name=name)		                         # chama construtor da superclasse 
 
     def run(self):
-        global threads_terminadas
-        global faixa_etaria_atual
-        global fila_clientes
-        while (len(fila_clientes) != 0):
+        semaforo_entrar_na_fila.acquire()
+        fila_pra_entrar.append(self)
+        semaforo_entrar_na_fila.release()
 
-            sem_controle.acquire()
-            with contador_threads_terminadas:
-                threads_terminadas = 0
+def entrar_na_fila():
+    z = 0
+    global sessao_em_progresso
+    global pessoas_na_sessao
+    
+    while(z < n_pessoas):
+        with lock:
+            with sessao_lock:
+                entrar_na_exp.wait()
+                if sessao_em_progresso:
+                    if fila_pra_entrar[0].faixa_etaria == faixa_etaria_atual and pessoas_na_sessao < n_vagas:
+                        fila_pra_entrar[0].participou = True
+                        pessoas_na_sessao += 1
+                        print("[Pessoa %s / %s] Entrou na Ixfera (quantidade = %d)." %(fila_pra_entrar[0].name, fila_pra_entrar[0].faixa_etaria, pessoas_na_sessao))
+                        fila_pra_entrar.pop(0)
+                else:
+                    fila_clientes.put(fila_pra_entrar[0])
+                    print("[Pessoa %s / %s] Aguardando na fila." %(fila_pra_entrar[0].name, fila_pra_entrar[0].faixa_etaria))
+                    fila_pra_entrar.pop(0)
+                    z += 1
+                    item_no_buffer.notify()
 
-            self.faixa_etaria = fila_clientes[0].faixa_etaria
-            faixa_etaria_atual = self.faixa_etaria
-            listapop = []
-            z = 0
-            print(self.faixa_etaria)
+        intervalo_chegada = random.randint(1, max_intervalo)
+        time.sleep(intervalo_chegada * unid_tempo / 1000)    
 
-            if self.faixa_etaria == "A":
-                for i in range(len(fila_clientes)):
-                    if fila_clientes[i].faixa_etaria == "A":
-                        sem_cliente_A.release()
-                        listapop.append(i)
-                        z += 1
-                        if z == self.nvagas:
-                            break 
-            elif self.faixa_etaria == "B":
-                for i in range(len(fila_clientes)):
-                    if fila_clientes[i].faixa_etaria == "B":
-                        sem_cliente_B.release()
-                        listapop.append(i)
-                        z += 1
-                        if z == self.nvagas:
-                            break 
+def atracao():
+    remover = False
+    global faixa_etaria_atual
+    global fila_remover
+    global pessoas_na_sessao
+
+    while(not(terminou) or len(fila_clientes) != 0):
+        with lock:
+            if remover:
+                with remover_lock:
+                    while len(fila_remover) != 0:
+                        pessoas_na_sessao -= 1 
+                        print("[Pessoa %s / %s] Saiu da Ixfera (quantidade = %d)." %(fila_remover[0].name, fila_remover[0].faixa_etaria, pessoas_na_sessao))
+                        fila_remover.pop(0)
+                remover = False       
+            if fila_clientes.empty():
+                item_no_buffer.wait()
             else:
-                for i in range(len(fila_clientes)):
-                    if fila_clientes[i].faixa_etaria == "C":
-                        sem_cliente_C.release()
-                        listapop.append(i)
-                        z += 1
-                        if z == self.nvagas:
-                            break 
-            while (True):
-                with contador_threads_terminadas:
-                    if threads_terminadas == len(listapop):
-                        sem_controle.release()
-                        break
-            for i in range(len(listapop)):
-                fila_clientes.pop(listapop[i]-i)
+                semaforo_sessao.acquire()
+                pessoas_na_sessao = 0
+                cliente_0 = fila_clientes.get()
+                fila_remover.append(cliente_0)
+                faixa_etaria_sessao = cliente_0.faixa_etaria
+                pessoas_na_sessao += 1
+                print("[Pessoa %s / %s] Entrou na Ixfera (quantidade = %d)." %(cliente_0.name, faixa_etaria_sessao, pessoas_na_sessao))
+                sessao_nova = Thread(target=sessao(faixa_etaria_a=faixa_etaria_sessao))
+                sessao_nova.start()
+                remover = True
+                sessao_nova.join()
 
 
-
-
-
-def criar_threads(n_pessoas, n_vagas, permanencia, max_intervalo, semente, unid_tempo):
+def criar_threads(n_pessoas, semente):
     random.seed(semente)
-    clientes = []
+    lista_clientes = []
 
-    global sem_cliente_A
-    global sem_cliente_B
-    global sem_cliente_C
-    sem_cliente_A = Semaphore(value=0)
-    sem_cliente_B = Semaphore(value=0)
-    sem_cliente_C = Semaphore(value=0)
-
+    print("[Ixfera] Simulacao iniciada")
 
     for i in range(n_pessoas):
         x = random.randint(0,2)
@@ -120,10 +112,11 @@ def criar_threads(n_pessoas, n_vagas, permanencia, max_intervalo, semente, unid_
         else: 
             faixa_e = "C"
 
-        clientes.append(Clientes_na_fila(name="cliente " + str(i), faixa_etaria=faixa_e))
-        clientes[i].start()
+        lista_clientes.append(Cliente(name=str(i), faixa_etaria=faixa_e))
+        lista_clientes[i].start()
 
-    return clientes
+
+    return lista_clientes
 
 '''
 if __name__ == "__main__":
@@ -140,22 +133,29 @@ if __name__ == "__main__":
     semente = int(sys.argv[5])
     unid_tempo = int(sys.argv[6])
 '''
-
 # Obter entrada do usuário para os parâmetros
-n_pessoas = int(input("Número total de pessoas: "))
-n_vagas = int(input("Número total de vagas na atração: "))
-permanencia = int(input("Permanência na atração: "))
-max_intervalo = int(input("Intervalo máximo entre chegadas: "))
-semente = int(input("Semente do gerador de números aleatórios: "))
-unid_tempo = int(input("Tempo correspondente a uma unidade de tempo (em milissegundos): "))
+n_pessoas = 10#int(input("Número total de pessoas: "))
+n_vagas = 2#int(input("Número total de vagas na atração: "))
+permanencia = 3000#int(input("Permanência na atração: "))
+max_intervalo = 2# int(input("Intervalo máximo entre chegadas: "))
+semente = 2#int(input("Semente do gerador de números aleatórios: "))
+unid_tempo = 2 #int(input("Tempo correspondente a uma unidade de tempo (em milissegundos): "))
+fila_clientes = queue.Queue(n_pessoas)
+fila_pra_entrar = []
+fila_remover = []
+terminou = False
+faixa_etaria_atual = ""
+sessao_em_progresso = False
 
 # Chamar a função de simulação com os parâmetros fornecidos
-clientes = criar_threads(n_pessoas, n_vagas, permanencia, max_intervalo, semente, unid_tempo)
-fila_clientes = clientes
+lista_clientes = criar_threads(n_pessoas, semente)
+ixfera = Thread(target=atracao)
+fila = Thread(target=entrar_na_fila)
+fila.start()
+ixfera.start()
+for i in range(len(lista_clientes)):
+    lista_clientes[i].join()
 
-atracao = Atracao(name="Atracao", nvagas=n_vagas, fila_clientes=fila_clientes)
-atracao.start()
-
-atracao.join()
-for i in range(len(fila_clientes)):
-    fila_clientes[i].join()
+ixfera.join()
+fila.join()
+print("[Ixfera] Simulacao finalizada")
