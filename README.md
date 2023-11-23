@@ -43,11 +43,13 @@ python3 ixphere.py <N_PESSOAS> <N_VAGAS> <PERMANENCIA> <MAX_INTERVALO> <SEMENTE>
 • <N_VAGAS>: é um número inteiro maior do que zero que representa o número total de vagas (lugares) na atração;
 
 • <PERMANENCIA>: é um número inteiro maior do que zero que representa a quantidade de unidades de tempo que
-as pessoas permanecem na atração;
+as 
+pessoas permanecem na atração;
 
 • <MAX_INTERVALO>: é um número inteiro maior do que zero que representa o intervalo máximo (medido em
 unidades de tempo da simulação) entre a chegada de duas pessoas quaisquer na fila;
 
-• <SEMENTE>: é um número inteiro maior ou igual à zero que representa a semente a ser utilizada para inicializar o gerador de números aleatórios;
+• <SEMENTE>: é um número inteiro maior ou igual à zero que representa a semente a ser utilizada para inicializar 
+o gerador de números aleatórios;
 
 • <UNID_TEMPO>: é um número inteiro maior do que zero que representa o tempo, em milissegundos, correspondente a uma unidade de tempo na simulação (quanto maior esse valor, mais lenta será a simulação).
