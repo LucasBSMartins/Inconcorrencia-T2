@@ -21,8 +21,9 @@ class Sessao(Thread):		       	                                 # subclasse de T
         super().__init__(name="Sessao")		                         # chama construtor da superclasse 
 
     def run(self):
-        global fila_sessao
-        global q_sessoes
+        demora = time.time()
+        global fila_sessao, tempo_sessao_total, q_sessoes
+    
 
         fila_sessao = []
         tempo_sessao = permanencia * unid_tempo / 1000
@@ -33,6 +34,7 @@ class Sessao(Thread):		       	                                 # subclasse de T
             time.sleep(1 * unid_tempo / 1000)
             with mutex_flag:
                 self.flag = True
+            aux = False
         with mutex_flag:
             self.flag = None
         while len(fila_sessao) != 0:
@@ -45,6 +47,8 @@ class Sessao(Thread):		       	                                 # subclasse de T
         with mutex_flag:
             print("[Ixfera] Pausando a experiencia %s." %(self.faixa_etaria_a))
             self.flag = False
+            demora_final = time.time()
+        tempo_sessao_total += (demora_final - demora) * 1000
 
 class Cliente(Thread):		       	                             # subclasse de Thread 
     def __init__(self, name, faixa_etaria):             
@@ -218,6 +222,7 @@ if __name__ == "__main__":
     relogio_c = []
     pessoas_na_exp = 0
     q_pessoas = 0
+    tempo_sessao_total = 0
 
     # Chamar a função de simulação com os parâmetros fornecidos
     threads_clientes = criar_threads(n_pessoas, semente)
@@ -251,5 +256,5 @@ if __name__ == "__main__":
     print("Faixa C: %.2f" %(media_c))
     print("")
 
-    taxa =((q_sessoes)*(permanencia*(unid_tempo/1000)))/tempo_final_milissegundos
-    print("Taxa de ocupacao: %f" %(taxa))
+    taxa = tempo_sessao_total/tempo_final_milissegundos
+    print("Taxa de ocupacao: %.2f" %(taxa))
