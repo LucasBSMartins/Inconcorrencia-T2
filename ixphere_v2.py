@@ -61,9 +61,8 @@ class Cliente(Thread):		       	                             # subclasse de Thre
         super().__init__(name=name)		                         # chama construtor da superclasse 
 
     def run(self):
-        global fila_sessao
-        global sessoes
-        global q_pessoas
+        global fila_sessao, sessoes, q_pessoas
+
 
         semaforo_entrar_na_fila.acquire()
         fila_pra_entrar.append(self)
@@ -77,9 +76,10 @@ class Cliente(Thread):		       	                             # subclasse de Thre
             if sessoes[len(sessoes)-1].pronto == True:
                 fila_sessao.append(self)
                 break
+
         self.semaforo1.acquire()
         self.tempo_fim = time.time()
-        self.tempo_final_milissegundos = round((self.tempo_fim - self.tempo_inicio) * 1000, 2)
+        self.tempo_final_milissegundos = (self.tempo_fim - self.tempo_inicio) * 1000
 
         with lista_relogio_lock:
             if self.faixa_etaria == "A":
@@ -112,7 +112,6 @@ def entrar_na_fila():
 def atracao():
 
     global sessoes, tempo_inicio
-    sessoes = []
     todos_participaram = False
     participaram = 0
     tempo_inicio = time.time()
@@ -171,8 +170,7 @@ def atracao():
 
         if participaram == n_pessoas:
             todos_participaram = True
-
-        
+      
 def criar_threads(n_pessoas, semente):
     random.seed(semente)
     threads_clientes = []
@@ -239,6 +237,7 @@ if __name__ == "__main__":
     relogio_a = []
     relogio_b = []
     relogio_c = []
+    sessoes = []
     pessoas_na_exp = 0
     q_pessoas = 0
     tempo_sessao_total = 0
@@ -264,9 +263,9 @@ if __name__ == "__main__":
     print("")
     tempo_final_milissegundos = (tempo_fim - tempo_inicio) * 1000
 
-    media_a = sum(relogio_a) / len(relogio_a)
-    media_b = sum(relogio_b) / len(relogio_b)
-    media_c = sum(relogio_c) / len(relogio_c)
+    media_a = (sum(relogio_a) / len(relogio_a)) 
+    media_b = (sum(relogio_b) / len(relogio_b)) 
+    media_c = (sum(relogio_c) / len(relogio_c)) 
 
     print("Tempo medio de espera:")
     print("Faixa A: %.2f" %(media_a))
