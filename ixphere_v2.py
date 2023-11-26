@@ -23,7 +23,6 @@ class Sessao(Thread):		       	                                 # subclasse de T
     def run(self):
         demora = time.time()
         global fila_sessao, tempo_sessao_total, q_sessoes
-    
 
         fila_sessao = []
         tempo_sessao = permanencia * unid_tempo / 1000
@@ -33,7 +32,7 @@ class Sessao(Thread):		       	                                 # subclasse de T
         with mutex_flag:
                 self.flag = True
         while time.time() - tempo_inicial < tempo_sessao:
-            time.sleep(1 * unid_tempo / 1000)
+            continue
         with mutex_flag:
             self.flag = None
         while len(fila_sessao) != 0:
