@@ -2,7 +2,6 @@ from threading import Thread, Semaphore, Lock
 from Sessao import Sessao
 from ControladorFila import ControladorFila
 from ControladorSessoes import ControladorSessoes
-from ControladorSaida import ControladorSaida
 from ControladorEntrada import ControladorEntrada
 from vars_globais import *
 
@@ -11,7 +10,6 @@ class Ixfera(Thread):
         self.controladores = {
             "Fila" : ControladorFila(self),
             "Entrada" : ControladorEntrada(self),
-            "Saida" : ControladorSaida(self),
             "Sessoes" : ControladorSessoes(self)
         }
         self.total_pessoas = 0
