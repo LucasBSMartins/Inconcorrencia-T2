@@ -12,6 +12,7 @@ class ControladorFila(Controlador):
             with mutex_fila_entrada:
                 cliente = fila_pre_entrada.get()
                 fila_entrada.append(cliente)
+                semaforo_print.acquire()
                 self.observador.notify_chegou_na_fila(cliente)
                 self.total_pessoas += 1
 

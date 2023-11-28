@@ -8,9 +8,9 @@ from vars_globais import *
 class Ixfera(Thread):
     def __init__(self):
         self.controladores = {
-            "Fila" : ControladorFila(self),
-            "Entrada" : ControladorEntrada(self),
-            "Sessoes" : ControladorSessoes(self)
+            "Fila" : ControladorFila(observador=self),
+            "Entrada" : ControladorEntrada(observador=self),
+            "Sessoes" : ControladorSessoes(observador=self)
         }
         self.total_pessoas = 0
         self.qtd_pessoas_na_exp = 0
@@ -48,31 +48,38 @@ class Ixfera(Thread):
     def notify_prox_faixa_etaria(self, faixa_etaria):
         self.controladores['Sessoes'].prox_faixa_etaria = faixa_etaria
         self.controladores['Sessoes'].semaforo.release()
+        self.controladores['Entrada'].semaforo.release()
 
     def notify_chegou_na_fila(self, cliente):
         print(f'[Pessoa {cliente.name} / {cliente.faixa_etaria}] Aguardando na fila.')
+        semaforo_print.release()
         self.controladores['Entrada'].semaforo.release()
 
     def notify_inicio_experiencia(self, experiencia):
         print(f'[Ixfera] Iniciando a experiencia {experiencia}')
+        semaforo_print.release()
         self.faixa_etaria_atual = experiencia
         self.experiencia_ativa = True
-        self.controladores['Entrada'].semaforo.release()
+        #self.controladores['Entrada'].semaforo.release()
 
     def notify_fim_experiencia(self, experiencia):
         self.faixa_etaria_atual = None
         self.experiencia_ativa = False
         print(f'[Ixfera] Pausando a experiencia {experiencia}')
+        semaforo_print.release()
 
     def notify_entrada(self, cliente):
         with self.mutex_pessoas_na_exp:
             self.qtd_pessoas_na_exp += 1
             pessoas_dentro_atracao.append(cliente)
         print(f'[Pessoa {cliente.name} / {cliente.faixa_etaria}] Entrou na Ixfera (quantidade = {self.qtd_pessoas_na_exp})')
+        semaforo_print.release()
 
     def notify_saida(self, cliente):
         with self.mutex_pessoas_na_exp:
             self.qtd_pessoas_na_exp -= 1
             pessoas_dentro_atracao.pop(0)
+        cliente.semaforo_saida.release()
         print(f'[Pessoa {cliente.name} / {cliente.faixa_etaria}] Saiu da Ixfera (quantidade = {self.qtd_pessoas_na_exp})')
+        semaforo_print.release()
         self.total_pessoas += 1

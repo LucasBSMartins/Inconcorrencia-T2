@@ -199,7 +199,7 @@ if __name__ == "__main__":
         sys.exit()
     if unid_tempo < 0:
         print("<UNID_TEMPO> precisa ser  maior que 0.")
-       sys.exit()
+        sys.exit()
 
     '''
     # Obter entrada do usuário para os parâmetros

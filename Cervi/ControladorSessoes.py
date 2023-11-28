@@ -20,11 +20,19 @@ class ControladorSessoes(Controlador):
                 # Cria e inicia proxima sessao
                 self.sessoes.append(Sessao(faixa_etaria=self.prox_faixa_etaria, observador=self))
                 self.sessoes[len(self.sessoes)-1].start()
+                semaforo_print.acquire()
                 self.observador.notify_inicio_experiencia(self.sessoes[0].faixa_etaria)
-            #else:
+            else:
                 # Espera acabar sessao atual
-                #if (self.sessoes[len(self.sessoes)-1].terminou):
-                    #self.observador.notify_fim_experiencia(self.faixa_etaria)
+                if (len(self.sessoes)):
+                    if (self.sessoes[len(self.sessoes)-1].terminou):
+                        while (len(pessoas_dentro_atracao)):
+                            with mutex_pessoas_na_exp:
+                                cliente = pessoas_dentro_atracao[0]
+                            semaforo_print.acquire()
+                            self.observador.notify_saida(cliente)
+                        semaforo_print.acquire()
+                        self.observador.notify_fim_experiencia(self.faixa_etaria)
 
             if (self.end):
                 break
