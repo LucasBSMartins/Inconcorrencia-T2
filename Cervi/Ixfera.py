@@ -14,7 +14,6 @@ class Ixfera(Thread):
         }
         self.total_pessoas = 0
         self.qtd_pessoas_na_exp = 0
-        self.pessoas_na_exp = []
         self.mutex_pessoas_na_exp = Lock()
         self.semaforo = Semaphore(0)
         self.experiencia_ativa = False
@@ -23,21 +22,28 @@ class Ixfera(Thread):
 
     def run(self):
         print("[Ixfera] Simulacao iniciada")
+
+        # Iniciar threads dos controladores
         for control in self.controladores.values():
             control.start()
-
+        
+        # Controle de Saida das Pessoas
         while True:
-            for pessoa in self.pessoas_na_exp:
+            for pessoa in pessoas_dentro_atracao:
                 if (pessoa.assistiu):
                     self.notify_saida(pessoa)
             if (self.total_pessoas == n_pessoas):
                 self.controladores['Sessoes'].end = True
                 break
-
+        
+        # Sincronizar threads dos controladores
         for control in self.controladores.values():
             control.join()
 
         print("[Ixfera] Simulacao finalizada")
+
+
+    # Notificações vindas dos controladores
 
     def notify_prox_faixa_etaria(self, faixa_etaria):
         self.controladores['Sessoes'].prox_faixa_etaria = faixa_etaria
@@ -61,12 +67,12 @@ class Ixfera(Thread):
     def notify_entrada(self, cliente):
         with self.mutex_pessoas_na_exp:
             self.qtd_pessoas_na_exp += 1
-            self.pessoas_na_exp.append(cliente)
+            pessoas_dentro_atracao.append(cliente)
         print(f'[Pessoa {cliente.name} / {cliente.faixa_etaria}] Entrou na Ixfera (quantidade = {self.qtd_pessoas_na_exp})')
 
     def notify_saida(self, cliente):
         with self.mutex_pessoas_na_exp:
             self.qtd_pessoas_na_exp -= 1
-            self.pessoas_na_exp.pop(0)
+            pessoas_dentro_atracao.pop(0)
         print(f'[Pessoa {cliente.name} / {cliente.faixa_etaria}] Saiu da Ixfera (quantidade = {self.qtd_pessoas_na_exp})')
         self.total_pessoas += 1

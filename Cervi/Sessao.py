@@ -14,13 +14,16 @@ class Sessao(Thread):
         tempo_inicial = time.time()
         self.observador.secao_em_andamento = True
 
+        # Espera dar o tempo da sessao
         while (time.time() - tempo_inicial < tempo_sessao):
             time.sleep(unid_tempo / 1000)
 
+        
         while (len(pessoas_dentro_atracao)):
-            self.qtd_pessoas_dentro -= 1
-            cliente = pessoas_dentro_atracao.pop(0)
+            with mutex_pessoas_na_exp:
+                cliente = pessoas_dentro_atracao[0]
             cliente.semaforo_saida.release()
             cliente.join()
             self.terminou = True
-            self.observador.faixa_etaria = self.faixa_etaria
+            self.observador.observador.notify_saida(cliente)
+        self.observador.observador.notify_fim_experiencia(self.faixa_etaria)

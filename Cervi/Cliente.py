@@ -13,9 +13,11 @@ class Cliente(Thread):
     def run(self):
         with mutex_fila_pre_entrada:
             fila_pre_entrada.put(self)
+        
+        self.semaforo_entrada.acquire() # Espera cliente entrar na Ixfera
+        
+        time.sleep(permanencia) # Tempo dentro da Ixfera
+        self.assistiu = True # Avisar que terminou
 
-        self.semaforo_entrada.acquire()
-        time.sleep(permanencia)
-        self.assistiu = True
         self.semaforo_saida.acquire()
 
