@@ -18,42 +18,39 @@ class Sessao(Thread):		       	                                 # subclasse de T
         self.pessoas_na_exp = 0
         self.faixa_etaria_a = faixa_etaria_a
         self.em_andamento = True
-        self.pronto_para_entrar = False
+        self.fila_sessao = []
         super().__init__(name="Sessao")		                         # chama construtor da superclasse 
 
     def run(self):
-        demora = time.time()
-        global fila_sessao, tempo_sessao_total, q_sessoes
 
-        fila_sessao = []
+        demora = time.time() * 1000
+        global tempo_sessao_total
+
         tempo_sessao = permanencia * (unid_tempo / 1000)
         tempo_inicial = time.time()
-    
-        self.pronto_para_entrar = True
 
         with mutex_em_andamento:
             self.em_andamento = True
-        
+
         while time.time() - tempo_inicial < tempo_sessao:
             time.sleep(1/100000000000000000000000)
-   
+
         with mutex_em_andamento:
             self.em_andamento = None
 
-        while len(fila_sessao) != 0:
+        while len(self.fila_sessao) != 0:
             self.pessoas_na_exp -= 1
-            fila_sessao[0].semaforo_cliente_saiu.release()
-            fila_sessao[0].join()
-            fila_sessao.pop(0)
+            self.fila_sessao[0].semaforo_cliente_saiu.release()
+            self.fila_sessao[0].join()
+            self.fila_sessao.pop(0)
             semaforo_print.acquire()   
 
         with mutex_em_andamento:
             print("[Ixfera] Pausando a experiencia %s." %(self.faixa_etaria_a))
             self.em_andamento = False
-        
-        
-        demora_final = time.time()
-        tempo_sessao_total += (demora_final - demora) * 1000
+
+        demora_final = time.time() * 1000
+        tempo_sessao_total += (demora_final - demora)
         semaforo_acabar_experiencia.release()
 
 
@@ -63,28 +60,27 @@ class Cliente(Thread):		       	                             # subclasse de Thre
         self.semaforo_entrar_na_sessao = Semaphore(0)
         self.semaforo_cliente_saiu = Semaphore(0)
         self.semaforo_relogio = Semaphore(0)
-        self.participou = False
         self.tempo_inicio_cliente = 0
         super().__init__(name=name)		                         # chama construtor da superclasse 
 
     def run(self):
-        global fila_sessao, sessoes, q_pessoas
+        global sessoes, q_pessoas
 
         fila_pra_entrar.append(self)
 
         self.semaforo_relogio.acquire()
-        self.tempo_inicio_cliente = time.time()
+        self.tempo_inicio_cliente = time.time() * 1000
 
         self.semaforo_entrar_na_sessao.acquire()
+        
+        sessoes[len(sessoes)-1].fila_sessao.append(self)
 
-        while True:
-            if sessoes[len(sessoes)-1].pronto_para_entrar == True:
-                fila_sessao.append(self)
-                break
-
+        # Aguarda o cliente participar da sessao
         self.semaforo_cliente_saiu.acquire()
-        self.tempo_fim = time.time()
-        self.tempo_final_milissegundos = (self.tempo_fim - self.tempo_inicio_cliente) * 1000
+
+        # Calcula o tempo que demorou para participar na fila e adiciona para somar depois
+        self.tempo_fim = time.time() * 1000
+        self.tempo_final_milissegundos = (self.tempo_fim - self.tempo_inicio_cliente)
 
         if self.faixa_etaria == "A":
             relogio_a.append(self.tempo_final_milissegundos)
@@ -95,19 +91,22 @@ class Cliente(Thread):		       	                             # subclasse de Thre
 
         print("[Pessoa %s / %s] Saiu da Ixfera (quantidade = %d)." %(self.name, self.faixa_etaria, sessoes[len(sessoes)-1].pessoas_na_exp))
         semaforo_print.release() 
-    
+
+        # Se a quantidade de pessoas que participaram for igual o numero de pessoas totais, libera o print de estatisticas
         q_pessoas += 1
         if q_pessoas == n_pessoas:
             semaforo_print_final.release()
 
     def cliente_entrar_na_sessao(self, sessoes):
-        self.participou = True           
+        # Se for somente entrar numa sessao, usa esta funcao
+        # Libera o semaforo para entrar na sessao e printa
         self.semaforo_entrar_na_sessao.release() 
         sessoes[len(sessoes)-1].pessoas_na_exp += 1
         print("[Pessoa %s / %s] Entrou na Ixfera (quantidade = %d)." %(self.name, self.faixa_etaria, sessoes[len(sessoes)-1].pessoas_na_exp))
     
     def cliente_entrar_na_sessao_e_criar(self, sessoes):
-        self.participou = True           
+        # Se for o primeiro cliente a entrar, cria uma sessao e a inicia
+        # Libera o semaforo para entrar na sessao e printa
         self.semaforo_entrar_na_sessao.release() 
         sessoes.append(Sessao(faixa_etaria_a=self.faixa_etaria))
         sessoes[len(sessoes)-1].start()
@@ -118,14 +117,16 @@ class Cliente(Thread):		       	                             # subclasse de Thre
 def entrar_na_fila():
     pessoas_dentro_da_fila = 0
     while(pessoas_dentro_da_fila < n_pessoas):
+        # Adciona cliente na fila
         with lock:
             fila_clientes.append(fila_pra_entrar[0])
             print("[Pessoa %s / %s] Aguardando na fila." %(fila_pra_entrar[0].name, fila_pra_entrar[0].faixa_etaria))
-            fila_pra_entrar[0].semaforo_relogio.release()
+            fila_pra_entrar[0].semaforo_relogio.release()       # Libera a contagem de tempo que o cliente está na fila
             fila_pra_entrar.pop(0)
             pessoas_dentro_da_fila += 1
             item_no_buffer.notify()
         if pessoas_dentro_da_fila != n_pessoas:
+            # Intervalo de tempo randomico entre a chegada de duas pessoas
             intervalo_chegada = random.randint(0, max_intervalo)
             time.sleep(intervalo_chegada * unid_tempo / 1000)    
 
@@ -133,43 +134,53 @@ def atracao():
 
     global sessoes, tempo_inicio
     participaram = 0
-    tempo_inicio = time.time()
+    tempo_inicio = time.time()* 1000      # Marca inicio da ixfera
 
+    # Aguarda ter cliente na Fila
     if (len(fila_clientes) == 0):
         item_no_buffer.wait()
 
+    # Inicia a primeira sessão
     cliente_atual = fila_clientes[0]
     cliente_atual.cliente_entrar_na_sessao_e_criar(sessoes)   
     fila_clientes.pop(0)
     participaram += 1
 
     while(participaram != n_pessoas):
+        # Aguarda ter cliente na Fila
         with lock:
             if (len(fila_clientes) == 0):
                 item_no_buffer.wait()
 
+        # Utiliza o mutex que bloqueia a flag "em_andamento"
         with mutex_em_andamento:
-            if fila_clientes[0].participou == False and (sessoes[len(sessoes)-1].em_andamento == False):
+            
+            # Se uma sessao nao está em andamento cria uma com o cliente 0
+            if (sessoes[len(sessoes)-1].em_andamento == False):
                 cliente_atual = fila_clientes[0]
                 cliente_atual.cliente_entrar_na_sessao_e_criar(sessoes)    
                 with lock:
                     fila_clientes.pop(0)
                 participaram += 1
-
-            elif fila_clientes[0].participou == False and (sessoes[len(sessoes)-1].em_andamento == True):
+            
+            # Se a flag em_andamento for True, o cliente for da faixa etaria atual, o proximo da fila e a sessao
+            # ter vagas disponiveis, adiciona o cliente na sessao
+            elif (sessoes[len(sessoes)-1].em_andamento == True):
                 if sessoes[len(sessoes)-1].pessoas_na_exp < n_vagas and fila_clientes[0].faixa_etaria == sessoes[len(sessoes)-1].faixa_etaria_a:
                     cliente_atual = fila_clientes[0]
                     cliente_atual.cliente_entrar_na_sessao(sessoes)
                     with lock:
                         fila_clientes.pop(0)
                     participaram += 1
-    
+
+        # Se o proximo cliente na fila for uma pessoa com faixa etaria diferente da atual da sessao
+        # ou o numero maximo de vagas for atingido, aguarda o encerramento da sessao
         if (len(fila_clientes)) and (len(sessoes)):
             if sessoes[len(sessoes)-1].pessoas_na_exp == n_vagas or fila_clientes[0].faixa_etaria != sessoes[len(sessoes)-1].faixa_etaria_a:
                 semaforo_acabar_experiencia.acquire()
       
 def criar_threads():
-    random.seed(semente)
+
     threads_clientes = []
     faixa_e = ["A", "B", "C"]
 
@@ -179,6 +190,7 @@ def criar_threads():
 
         x = random.randint(0,2)
 
+        # Cria a Thread Clientes e a inicia
         threads_clientes.append(Cliente(name=str(i), faixa_etaria=faixa_e[x]))
         threads_clientes[i].start()
 
@@ -208,13 +220,16 @@ if __name__ == "__main__":
         print("<PERMANENCIA> precisa ser maior que 0.")
         sys.exit()
     if max_intervalo < 0:
-        print("<PERMANENCIA> precisa ser maior ou igual a 0.")
+        print("<PERMANENCIA> precisa ser maior que 0.")
+        sys.exit()
+    if semente < 0:
+        print("<SEMENTE> precisa ser maior ou igual que zero")
         sys.exit()
     if unid_tempo < 0:
         print("<UNID_TEMPO> precisa ser  maior que 0.")
         sys.exit()
-    '''
 
+    '''
     # Obter entrada do usuário para os parâmetros
     n_pessoas = int(input("Número total de pessoas: "))
     n_vagas = int(input("Número total de vagas na atração: "))
@@ -223,7 +238,8 @@ if __name__ == "__main__":
     semente = int(input("Semente do gerador de números aleatórios: "))
     unid_tempo = int(input("Tempo correspondente a uma unidade de tempo (em milissegundos): "))
     '''
-
+    
+    # Variáveis globais
     fila_clientes = []
     fila_pra_entrar = []
     relogio_a = []
@@ -233,6 +249,7 @@ if __name__ == "__main__":
     pessoas_na_exp = 0
     q_pessoas = 0
     tempo_sessao_total = 0
+    random.seed(semente)
 
     # Chamar a função de simulação com os parâmetros fornecidos
     threads_clientes = criar_threads()
@@ -245,16 +262,23 @@ if __name__ == "__main__":
     ixfera.join()
     fila.join()
 
+    # Liberado quando o último cliente sai da esfera
     semaforo_print_final.acquire()
 
+    # Finaliza as threads sessoes
     while len(sessoes) != 0:
         sessoes[0].join()
         sessoes.pop(0)
-    tempo_fim = time.time()
+    
+    # Marca quando é finalizado a ixfera
+    tempo_fim = time.time()* 1000
+
     print("[Ixfera] Simulacao finalizada.")
     print("")
-    tempo_final_milissegundos = (tempo_fim - tempo_inicio) * 1000
 
+    tempo_final_milissegundos = (tempo_fim - tempo_inicio) 
+
+    # Printa valor do relatório de estatísticas
     if (len(relogio_a) != 0):
         media_a = (sum(relogio_a) / len(relogio_a)) 
     if (len(relogio_b) != 0):
