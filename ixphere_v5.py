@@ -253,14 +253,26 @@ if __name__ == "__main__":
     print("")
     tempo_final_milissegundos = (tempo_fim - tempo_inicio) * 1000
 
-    media_a = (sum(relogio_a) / len(relogio_a)) 
-    media_b = (sum(relogio_b) / len(relogio_b)) 
-    media_c = (sum(relogio_c) / len(relogio_c)) 
+    if (len(relogio_a) != 0):
+        media_a = (sum(relogio_a) / len(relogio_a)) 
+    if (len(relogio_b) != 0):
+        media_b = (sum(relogio_b) / len(relogio_b)) 
+    if (len(relogio_c) != 0):
+        media_c = (sum(relogio_c) / len(relogio_c)) 
 
     print("Tempo medio de espera:")
-    print("Faixa A: %.2f" %(media_a))
-    print("Faixa B: %.2f" %(media_b))
-    print("Faixa C: %.2f" %(media_c))
+    if (len(relogio_a) != 0):
+        print("Faixa A: %.2f" %(media_a))
+    else:
+        print("Não foram gerados clientes da faixa A")
+    if (len(relogio_b) != 0):
+        print("Faixa B: %.2f" %(media_b))
+    else:
+        print("Não foram gerados clientes da faixa B")
+    if (len(relogio_c) != 0):
+        print("Faixa C: %.2f" %(media_c))
+    else:
+        print("Não foram gerados clientes da faixa C")
     print("")
 
     taxa = tempo_sessao_total/tempo_final_milissegundos
