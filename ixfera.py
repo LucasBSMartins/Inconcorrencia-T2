@@ -188,7 +188,7 @@ if __name__ == "__main__":
     # Verificar se a quantidade correta de argumentos foi fornecida
     
     if len(sys.argv) != 7:
-        print("Uso correto: python3 ixphere.py <N_PESSOAS> <N_VAGAS> <PERMANENCIA> <MAX_INTERVALO> <SEMENTE> <UNID_TEMPO>")
+        print("Uso correto: python3 ixfera.py <N_PESSOAS> <N_VAGAS> <PERMANENCIA> <MAX_INTERVALO> <SEMENTE> <UNID_TEMPO>")
         sys.exit(1)
 
     # Obter os parâmetros da linha de comando
