@@ -18,12 +18,13 @@ class Sessao(Thread):		       	                                 # subclasse de T
         self.pessoas_na_exp = 0
         self.faixa_etaria_a = faixa_etaria_a
         self.em_andamento = True
+        self.demora = 0
         self.pronto_para_entrar = False
         super().__init__(name="Sessao")		                         # chama construtor da superclasse 
 
     def run(self):
-        demora = time.time()
-        global fila_sessao, tempo_sessao_total, q_sessoes
+        self.demora = time.time()
+        global fila_sessao
 
         fila_sessao = []
         tempo_sessao = permanencia * (unid_tempo / 1000)
@@ -51,11 +52,7 @@ class Sessao(Thread):		       	                                 # subclasse de T
             print("[Ixfera] Pausando a experiencia %s." %(self.faixa_etaria_a))
             self.em_andamento = False
         
-        
-        demora_final = time.time()
-        tempo_sessao_total += (demora_final - demora) * 1000
         semaforo_acabar_experiencia.release()
-
 
 class Cliente(Thread):		       	                             # subclasse de Thread 
     def __init__(self, name, faixa_etaria):             
@@ -131,7 +128,7 @@ def entrar_na_fila():
 
 def atracao():
 
-    global sessoes, tempo_inicio
+    global sessoes, tempo_inicio, tempo_sessao_total
     participaram = 0
     tempo_inicio = time.time()
 
@@ -149,15 +146,15 @@ def atracao():
                 item_no_buffer.wait()
 
         with mutex_em_andamento:
-            if fila_clientes[0].participou == False and (sessoes[len(sessoes)-1].em_andamento == False):
+            if fila_clientes[0].participou == False and not(len(sessoes)):
                 cliente_atual = fila_clientes[0]
                 cliente_atual.cliente_entrar_na_sessao_e_criar(sessoes)    
                 with lock:
                     fila_clientes.pop(0)
                 participaram += 1
 
-            elif fila_clientes[0].participou == False and (sessoes[len(sessoes)-1].em_andamento == True):
-                if sessoes[len(sessoes)-1].pessoas_na_exp < n_vagas and fila_clientes[0].faixa_etaria == sessoes[len(sessoes)-1].faixa_etaria_a:
+            elif fila_clientes[0].participou == False and (sessoes[0].em_andamento == True):
+                if sessoes[len(sessoes)-1].pessoas_na_exp < n_vagas and fila_clientes[0].faixa_etaria == sessoes[0].faixa_etaria_a:
                     cliente_atual = fila_clientes[0]
                     cliente_atual.cliente_entrar_na_sessao(sessoes)
                     with lock:
@@ -165,9 +162,13 @@ def atracao():
                     participaram += 1
     
         if (len(fila_clientes)) and (len(sessoes)):
-            if sessoes[len(sessoes)-1].pessoas_na_exp == n_vagas or fila_clientes[0].faixa_etaria != sessoes[len(sessoes)-1].faixa_etaria_a:
+            if sessoes[len(sessoes)-1].pessoas_na_exp == n_vagas or fila_clientes[0].faixa_etaria != sessoes[0].faixa_etaria_a:
                 semaforo_acabar_experiencia.acquire()
-      
+                demora = sessoes[0].demora
+                sessoes[0].join()
+                demora_final = time.time()
+                tempo_sessao_total += (demora_final - demora) * 1000
+
 def criar_threads():
     random.seed(semente)
     threads_clientes = []
