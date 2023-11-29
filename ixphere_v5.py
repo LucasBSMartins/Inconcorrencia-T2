@@ -7,6 +7,7 @@ lock = Lock()
 mutex_em_andamento = Lock()
 lista_relogio_lock = Lock()
 
+semaforo_acabar_experiencia = Semaphore(0)
 item_no_buffer = Condition(lock)
 semaforo_entrar_na_fila = Semaphore(1)
 semaforo_print = Semaphore(0)
@@ -50,8 +51,11 @@ class Sessao(Thread):		       	                                 # subclasse de T
             print("[Ixfera] Pausando a experiencia %s." %(self.faixa_etaria_a))
             self.em_andamento = False
         
+        
         demora_final = time.time()
         tempo_sessao_total += (demora_final - demora) * 1000
+        semaforo_acabar_experiencia.release()
+
 
 class Cliente(Thread):		       	                             # subclasse de Thread 
     def __init__(self, name, faixa_etaria):             
@@ -66,14 +70,13 @@ class Cliente(Thread):		       	                             # subclasse de Thre
     def run(self):
         global fila_sessao, sessoes, q_pessoas
 
-        semaforo_entrar_na_fila.acquire()
         fila_pra_entrar.append(self)
-        semaforo_entrar_na_fila.release()   
 
         self.semaforo_relogio.acquire()
         self.tempo_inicio = time.time()
 
         self.semaforo_entrar_na_sessao.acquire()
+
         while True:
             if sessoes[len(sessoes)-1].pronto_para_entrar == True:
                 fila_sessao.append(self)
@@ -138,37 +141,27 @@ def atracao():
 
     cliente_atual = fila_clientes[0]
     cliente_atual.cliente_entrar_na_sessao_e_criar(sessoes)   
+    fila_clientes.pop(0)
 
     while(not(todos_participaram)):
-        length = len(fila_clientes)
-        for i in range(length):
-            with mutex_em_andamento:
-                if fila_clientes[i].participou == False and (sessoes[len(sessoes)-1].em_andamento == False):
-                    cliente_atual = fila_clientes[i]
-                    cliente_atual.cliente_entrar_na_sessao_e_criar(sessoes)    
 
-                elif fila_clientes[i].participou == False and (sessoes[len(sessoes)-1].em_andamento == True):
-                    if sessoes[len(sessoes)-1].pessoas_na_exp < n_vagas and fila_clientes[i].faixa_etaria == sessoes[len(sessoes)-1].faixa_etaria_a:
-                        cliente_atual = fila_clientes[i]
-                        cliente_atual.cliente_entrar_na_sessao(sessoes)
+        with mutex_em_andamento:
+            if fila_clientes[0].participou == False and (sessoes[len(sessoes)-1].em_andamento == False):
+                cliente_atual = fila_clientes[0]
+                cliente_atual.cliente_entrar_na_sessao_e_criar(sessoes)    
+                with lock:
+                    fila_clientes.pop(0)
 
-            if sessoes[len(sessoes)-1].pessoas_na_exp == n_vagas:
-                break
-
-        if (len(fila_clientes) != 0):
-            with lock:
-                i = 0
-                length_l = len(fila_clientes)
-                apagadas = 0
-                while True:
-                    if fila_clientes[i].participou == True:
-                        fila_clientes.pop(i)
-                        participaram += 1
-                        apagadas += 1 
-                    else:
-                        i += 1
-                    if i == length_l-apagadas:
-                        break
+            elif fila_clientes[0].participou == False and (sessoes[len(sessoes)-1].em_andamento == True):
+                if sessoes[len(sessoes)-1].pessoas_na_exp < n_vagas and fila_clientes[0].faixa_etaria == sessoes[len(sessoes)-1].faixa_etaria_a:
+                    cliente_atual = fila_clientes[0]
+                    cliente_atual.cliente_entrar_na_sessao(sessoes)
+                    with lock:
+                        fila_clientes.pop(0)
+    
+        if (len(fila_clientes)) and (len(sessoes)):
+            if sessoes[len(sessoes)-1].pessoas_na_exp == n_vagas or fila_clientes[0].faixa_etaria != sessoes[len(sessoes)-1].faixa_etaria_a:
+                semaforo_acabar_experiencia.acquire()
 
         if participaram == n_pessoas:
             todos_participaram = True
