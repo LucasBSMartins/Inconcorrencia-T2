@@ -36,7 +36,7 @@ simultaneamente na atração;
 ## Como Executar
 
 ```bash
-python3 ixphere.py <N_PESSOAS> <N_VAGAS> <PERMANENCIA> <MAX_INTERVALO> <SEMENTE> <UNID_TEMPO>
+python3 ixfera.py <N_PESSOAS> <N_VAGAS> <PERMANENCIA> <MAX_INTERVALO> <SEMENTE> <UNID_TEMPO>
 ```
 • N_PESSOAS: é um número inteiro maior do que zero que representa o número total de pessoas que irão ingressar na atração (cada faixa etária deverá conter aproximadamente 1/3 do total de pessoas);
 
