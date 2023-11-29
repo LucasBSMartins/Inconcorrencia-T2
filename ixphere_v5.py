@@ -245,7 +245,6 @@ if __name__ == "__main__":
     # Esperar a atração terminar
     ixfera.join()
     fila.join()
-
     semaforo_print_final.acquire()
 
     while len(sessoes) != 0:
