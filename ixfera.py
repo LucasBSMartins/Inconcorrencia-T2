@@ -295,7 +295,6 @@ if __name__ == "__main__":
         print("Não foram gerados clientes da faixa C")
     print("")
 
-    print(tempo_sessao_total)
-    print(tempo_final_milissegundos)
     taxa = tempo_sessao_total/tempo_final_milissegundos
+    taxa = float (str (taxa)[:4])
     print("Taxa de ocupacao: %.2f" %(taxa))
